@@ -1,11 +1,14 @@
-const CACHE_NAME = 'poker-trainer-v2';
+const CACHE_NAME = 'poker-trainer-v3';
 const ASSETS = [
   './',
   './index.html',
   './css/styles.css',
   './js/app.js',
   './js/storage.js',
+  './js/cards.js',
   './js/modules/pot-odds.js',
+  './js/modules/hand-equity.js',
+  './js/modules/ev-decision.js',
   './manifest.json',
   './icons/icon-192.png',
   './icons/icon-512.png',

@@ -26,6 +26,7 @@ html, body {
   color: var(--text);
   -webkit-tap-highlight-color: transparent;
   -webkit-text-size-adjust: 100%;
+  overflow-x: hidden;
 }
 
 #app {
@@ -112,12 +113,19 @@ html, body {
 /* Input area */
 .input-area {
   display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.input-row {
+  display: flex;
   gap: 10px;
   align-items: center;
 }
 
 .answer-input {
   flex: 1;
+  min-width: 0;
   background: var(--bg-input);
   border: 2px solid transparent;
   border-radius: var(--radius);
@@ -146,6 +154,7 @@ html, body {
   font-size: 1.4rem;
   font-weight: 600;
   color: var(--text-dim);
+  flex-shrink: 0;
 }
 
 .submit-btn {
@@ -158,6 +167,7 @@ html, body {
   font-weight: 600;
   cursor: pointer;
   transition: opacity 0.15s;
+  width: 100%;
 }
 
 .submit-btn:active {
@@ -449,4 +459,172 @@ html, body {
 /* Streak indicator */
 .streak {
   color: var(--yellow);
+}
+
+/* Playing cards */
+.cards-display {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.playing-card {
+  width: 48px;
+  height: 68px;
+  border-radius: 6px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1.1;
+  border: 2px solid #ddd;
+}
+
+.playing-card.red { color: #d32f2f; }
+.playing-card.black { color: #222; }
+
+.playing-card .card-rank {
+  font-size: 1rem;
+}
+
+.playing-card .card-suit {
+  font-size: 0.9rem;
+}
+
+.cards-section-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+  text-align: center;
+}
+
+.cards-divider {
+  width: 2px;
+  background: var(--bg-input);
+  margin: 0 4px;
+  align-self: stretch;
+  border-radius: 1px;
+}
+
+.hand-and-board {
+  margin-bottom: 20px;
+}
+
+.street-badge {
+  display: inline-block;
+  background: var(--bg-input);
+  color: var(--yellow);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 4px 10px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+
+/* Step indicator for multi-step questions */
+.step-label {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.step-label strong {
+  color: var(--text);
+}
+
+/* Decision buttons (Module 3) */
+.decision-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.decision-btn {
+  padding: 18px 12px;
+  border-radius: var(--radius);
+  border: 2px solid var(--bg-input);
+  background: transparent;
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+  line-height: 1.3;
+}
+
+.decision-btn:active {
+  opacity: 0.8;
+}
+
+.decision-btn.call {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+.decision-btn.fold {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.decision-btn.selected {
+  background: var(--bg-input);
+}
+
+/* Reference table */
+.ref-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  font-size: 0.78rem;
+}
+
+.ref-table th,
+.ref-table td {
+  padding: 6px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--bg-input);
+}
+
+.ref-table th {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.ref-table td {
+  color: var(--text-dim);
+}
+
+/* Feedback detail rows */
+.feedback-detail {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  line-height: 1.6;
+  text-align: left;
+  margin-top: 12px;
+}
+
+.feedback-detail .fd-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+}
+
+.feedback-detail .fd-label {
+  color: var(--text-dim);
+}
+
+.feedback-detail .fd-value {
+  color: var(--text);
+  font-weight: 600;
 }

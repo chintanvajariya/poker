@@ -167,8 +167,10 @@ export function mount(app, navigateHome) {
 
         <div id="input-zone">
           <div class="input-area">
-            <input type="number" inputmode="decimal" class="answer-input" id="answer" placeholder="Equity %" autocomplete="off">
-            <span class="percent-sign">%</span>
+            <div class="input-row">
+              <input type="number" inputmode="decimal" class="answer-input" id="answer" placeholder="Equity %" autocomplete="off">
+              <span class="percent-sign">%</span>
+            </div>
             <button class="submit-btn" id="submit">Go</button>
           </div>
         </div>
