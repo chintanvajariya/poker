@@ -530,23 +530,11 @@ html, body {
   margin-bottom: 12px;
 }
 
-/* Step indicator for multi-step questions */
-.step-label {
-  font-size: 0.8rem;
-  color: var(--text-dim);
-  margin-bottom: 8px;
-  text-align: center;
-}
-
-.step-label strong {
-  color: var(--text);
-}
-
 /* Decision buttons (Module 3) */
-.decision-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
+.decision-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .decision-btn {

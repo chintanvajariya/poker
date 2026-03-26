@@ -4,7 +4,6 @@ import { renderCards, generateDrawScenario } from '../cards.js';
 const MODULE_ID = 'hand-equity';
 const QUESTIONS_PER_SESSION = 10;
 const HARD_TIME_LIMIT_MS = 12000;
-const OUT_TOLERANCE = 1;
 const EQUITY_TOLERANCE = 4;
 
 export function mount(app, navigateHome) {
@@ -20,8 +19,6 @@ export function mount(app, navigateHome) {
   let submitted = false;
   let referenceOpen = false;
   let awaitingNext = false;
-  let step = 1; // 1 = outs, 2 = equity
-  let outsAnswer = null;
   let lifetimeStats = getModuleStats(MODULE_ID);
 
   function nextQuestion() {
@@ -29,8 +26,6 @@ export function mount(app, navigateHome) {
     currentScenario = generateDrawScenario(isFlop);
     questionStartTime = Date.now();
     submitted = false;
-    step = 1;
-    outsAnswer = null;
   }
 
   function render() {
@@ -45,7 +40,6 @@ export function mount(app, navigateHome) {
     if (!currentScenario) nextQuestion();
 
     const s = currentScenario;
-    const ruleText = s.street === 'flop' ? 'Rule of 4 (outs x 4)' : 'Rule of 2 (outs x 2)';
 
     const html = `
       <div class="header">
@@ -84,7 +78,7 @@ export function mount(app, navigateHome) {
       </div>
 
       <div class="card scenario" id="scenario-card">
-        <span class="street-badge">${s.street} &mdash; ${ruleText}</span>
+        <span class="street-badge">${s.street}</span>
 
         <div class="hand-and-board">
           <div class="cards-section-label">Your Hand</div>
@@ -94,24 +88,13 @@ export function mount(app, navigateHome) {
         </div>
 
         <div id="input-zone">
-          ${step === 1 ? `
-            <div class="step-label">Step 1: <strong>How many outs?</strong></div>
-            <div class="input-area">
-              <div class="input-row">
-                <input type="number" inputmode="numeric" class="answer-input" id="answer" placeholder="Outs" autocomplete="off">
-              </div>
-              <button class="submit-btn" id="submit">Next</button>
+          <div class="input-area">
+            <div class="input-row">
+              <input type="number" inputmode="decimal" class="answer-input" id="answer" placeholder="Your equity %" autocomplete="off">
+              <span class="percent-sign">%</span>
             </div>
-          ` : `
-            <div class="step-label">Step 2: <strong>Approximate equity?</strong> (${s.street === 'flop' ? 'outs x 4' : 'outs x 2'})</div>
-            <div class="input-area">
-              <div class="input-row">
-                <input type="number" inputmode="decimal" class="answer-input" id="answer" placeholder="Equity %" autocomplete="off">
-                <span class="percent-sign">%</span>
-              </div>
-              <button class="submit-btn" id="submit">Go</button>
-            </div>
-          `}
+            <button class="submit-btn" id="submit">Go</button>
+          </div>
         </div>
 
         <div id="feedback-zone"></div>
@@ -174,14 +157,6 @@ export function mount(app, navigateHome) {
       const doSubmit = () => {
         const val = parseFloat(input.value);
         if (isNaN(val)) return;
-
-        if (step === 1) {
-          outsAnswer = val;
-          step = 2;
-          clearInterval(timerInterval);
-          render();
-          return;
-        }
         handleAnswer(val);
       };
 
@@ -214,9 +189,7 @@ export function mount(app, navigateHome) {
     const elapsed = Date.now() - questionStartTime;
     const s = currentScenario;
     const timedOut = equityAnswer === null;
-    const outsCorrect = !timedOut && Math.abs(outsAnswer - s.outs) <= OUT_TOLERANCE;
-    const equityCorrect = !timedOut && Math.abs(equityAnswer - s.equity) <= EQUITY_TOLERANCE;
-    const isCorrect = outsCorrect && equityCorrect;
+    const isCorrect = !timedOut && Math.abs(equityAnswer - s.equity) <= EQUITY_TOLERANCE;
 
     questionNum++;
     sessionTotalTimeMs += elapsed;
@@ -256,8 +229,8 @@ export function mount(app, navigateHome) {
         <div class="feedback-result ${resultClass}">${resultText}</div>
         <div class="feedback-formula">
           <strong>${s.drawName}</strong> &mdash; <strong>${s.outs} outs</strong><br>
-          ${s.outs} &times; ${s.multiplier} = <strong>${s.equity}%</strong> equity
-          ${!timedOut ? `<br>Your outs: <strong>${outsAnswer}</strong> ${outsCorrect ? '&check;' : '&cross;'} &nbsp; Equity: <strong>${equityAnswer.toFixed(0)}%</strong> ${equityCorrect ? '&check;' : '&cross;'}` : ''}
+          ${s.outs} &times; ${s.multiplier} = <strong>${s.equity}%</strong>
+          ${!timedOut ? `<br>Your answer: <strong>${equityAnswer.toFixed(0)}%</strong>` : ''}
         </div>
       </div>
     `;
@@ -268,7 +241,7 @@ export function mount(app, navigateHome) {
       awaitingNext = false;
       currentScenario = null;
       render();
-    }, 2000);
+    }, 1500);
   }
 
   function renderSummary() {

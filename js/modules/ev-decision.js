@@ -127,7 +127,6 @@ export function mount(app, navigateHome) {
     if (!currentScenario) nextQuestion();
 
     const s = currentScenario;
-    const ruleText = s.street === 'flop' ? 'Rule of 4' : 'Rule of 2';
 
     const html = `
       <div class="header">
@@ -167,7 +166,7 @@ export function mount(app, navigateHome) {
 
       <div class="card scenario" id="scenario-card">
         <div class="scenario-narrative">${s.narrative}</div>
-        <span class="street-badge">${s.street} &mdash; ${ruleText}</span>
+        <span class="street-badge">${s.street}</span>
 
         <div class="hand-and-board">
           <div class="cards-section-label">Your Hand</div>
@@ -188,7 +187,7 @@ export function mount(app, navigateHome) {
         </div>
 
         <div id="input-zone">
-          <div class="decision-grid">
+          <div class="decision-stack">
             <button class="decision-btn call" data-choice="clear-call">Clear Call</button>
             <button class="decision-btn call" data-choice="marginal-call">Marginal Call</button>
             <button class="decision-btn fold" data-choice="marginal-fold">Marginal Fold</button>
@@ -204,7 +203,7 @@ export function mount(app, navigateHome) {
         <h3>How to Decide</h3>
         <ol>
           <li>Count your <strong>outs</strong></li>
-          <li>Estimate equity: outs &times; ${s.street === 'flop' ? '4' : '2'}</li>
+          <li>Estimate equity (outs &times; 4 on flop, &times; 2 on turn)</li>
           <li>Calculate pot odds: call &divide; (pot + call)</li>
           <li>Compare: equity vs required equity</li>
         </ol>
