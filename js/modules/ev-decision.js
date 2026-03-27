@@ -1,5 +1,5 @@
 import { getModuleStats, saveModuleStats } from '../storage.js';
-import { renderCards } from '../cards.js';
+import { renderCards, countTotalOuts } from '../cards.js';
 
 const MODULE_ID = 'ev-decision';
 const QUESTIONS_PER_SESSION = 10;
@@ -109,40 +109,9 @@ function hasMadeHand(hole, board) {
   return false;
 }
 
-// ── Outs verification ──
-
-function countFlushOuts(hole, board) {
-  const all = [...hole, ...board];
-  const suitCounts = {};
-  all.forEach((c) => { suitCounts[c.suit] = (suitCounts[c.suit] || 0) + 1; });
-  const flushSuit = Object.entries(suitCounts).find(([, n]) => n === 4);
-  if (!flushSuit) return 0;
-  const used = new Set(all.filter((c) => c.suit === flushSuit[0]).map((c) => c.rank));
-  return 13 - used.size;
-}
-
-function countStraightOuts(hole, board, type) {
-  const all = [...hole, ...board];
-  const rankSet = new Set(all.map((c) => RANK_IDX[c.rank]));
-  // Add ace as low
-  if (rankSet.has(12)) rankSet.add(-1);
-  let outs = 0;
-  // Check each possible rank if adding it would complete a 5-card straight
-  for (let r = 0; r < 13; r++) {
-    if (rankSet.has(r)) continue;
-    const test = new Set(rankSet);
-    test.add(r);
-    if (r === 12) test.add(-1); // ace also low
-    const sorted = [...test].sort((a, b) => a - b);
-    for (let i = 0; i <= sorted.length - 5; i++) {
-      if (sorted[i + 4] - sorted[i] === 4) {
-        outs++;
-        break;
-      }
-    }
-  }
-  return outs;
-}
+// ── Outs verification via brute-force (imported from cards.js) ──
+// countTotalOuts(hole, board) enumerates the remaining deck and counts
+// every card that completes a flush, straight, trips, or pairs an overcard.
 
 // ── Draw type definitions ──
 
@@ -157,9 +126,11 @@ const DRAW_TYPES = [
 ];
 
 // ── Board/hand generators per draw type ──
+// Each generator retries until countTotalOuts matches the expected count,
+// guaranteeing no accidental secondary draws inflate or deflate the outs.
 
 function generateFlushDraw(isFlop) {
-  for (let attempt = 0; attempt < 50; attempt++) {
+  for (let attempt = 0; attempt < 80; attempt++) {
     const flushSuit = pickRandom(SUITS);
     const otherSuits = SUITS.filter((s) => s !== flushSuit);
     const ranks = shuffle(RANKS);
@@ -172,77 +143,64 @@ function generateFlushDraw(isFlop) {
       { rank: ranks[3], suit: flushSuit },
       { rank: ranks[4], suit: pickRandom(otherSuits) },
     ];
-    if (!isFlop) {
-      board.push({ rank: ranks[5], suit: pickRandom(otherSuits) });
-    }
-    if (!hasMadeHand(hole, board)) return { hole, board };
+    if (!isFlop) board.push({ rank: ranks[5], suit: pickRandom(otherSuits) });
+    if (!hasMadeHand(hole, board) && countTotalOuts(hole, board) === 9) return { hole, board };
   }
   return null;
 }
 
 function generateOESD(isFlop) {
-  for (let attempt = 0; attempt < 50; attempt++) {
-    // 4 connected cards, need room on both ends
-    const startIdx = 1 + Math.floor(Math.random() * 8); // indices 1-8
+  for (let attempt = 0; attempt < 80; attempt++) {
+    const startIdx = 1 + Math.floor(Math.random() * 8);
     const connected = RANKS.slice(startIdx, startIdx + 4);
-    const shuffled = shuffle([0, 1, 2, 3]);
-    // Use varied suits to avoid flush draws
     const suits = shuffle(SUITS);
-    const hole = [
-      { rank: connected[shuffled[0]], suit: suits[0] },
-      { rank: connected[shuffled[1]], suit: suits[1] },
-    ];
     const usedRanks = new Set(connected);
     const fillerRanks = shuffle(RANKS.filter((r) => !usedRanks.has(r)));
+    const idx = shuffle([0, 1, 2, 3]);
+    const hole = [
+      { rank: connected[idx[0]], suit: suits[0] },
+      { rank: connected[idx[1]], suit: suits[1] },
+    ];
     const board = [
-      { rank: connected[shuffled[2]], suit: suits[2] },
-      { rank: connected[shuffled[3]], suit: suits[3] },
+      { rank: connected[idx[2]], suit: suits[2] },
+      { rank: connected[idx[3]], suit: suits[3] },
       { rank: fillerRanks[0], suit: pickRandom(SUITS) },
     ];
-    if (!isFlop) {
-      board.push({ rank: fillerRanks[1], suit: pickRandom(SUITS) });
-    }
-    if (!hasMadeHand(hole, board)) return { hole, board };
+    if (!isFlop) board.push({ rank: fillerRanks[1], suit: pickRandom(SUITS) });
+    if (!hasMadeHand(hole, board) && countTotalOuts(hole, board) === 8) return { hole, board };
   }
   return null;
 }
 
 function generateGutshot(isFlop) {
-  for (let attempt = 0; attempt < 50; attempt++) {
-    // 5 connected ranks, remove one interior card to create the gap
+  for (let attempt = 0; attempt < 80; attempt++) {
     const startIdx = Math.floor(Math.random() * 9);
     const five = RANKS.slice(startIdx, startIdx + 5);
-    // Remove index 1, 2, or 3 (interior)
     const gapIdx = 1 + Math.floor(Math.random() * 3);
     const kept = five.filter((_, i) => i !== gapIdx);
-    const shuffled = shuffle([0, 1, 2, 3]);
     const suits = shuffle(SUITS);
-    const hole = [
-      { rank: kept[shuffled[0]], suit: suits[0] },
-      { rank: kept[shuffled[1]], suit: suits[1] },
-    ];
     const usedRanks = new Set(five);
     const fillerRanks = shuffle(RANKS.filter((r) => !usedRanks.has(r)));
+    const idx = shuffle([0, 1, 2, 3]);
+    const hole = [
+      { rank: kept[idx[0]], suit: suits[0] },
+      { rank: kept[idx[1]], suit: suits[1] },
+    ];
     const board = [
-      { rank: kept[shuffled[2]], suit: suits[2] },
-      { rank: kept[shuffled[3]], suit: suits[3] },
+      { rank: kept[idx[2]], suit: suits[2] },
+      { rank: kept[idx[3]], suit: suits[3] },
       { rank: fillerRanks[0], suit: pickRandom(SUITS) },
     ];
-    if (!isFlop) {
-      board.push({ rank: fillerRanks[1], suit: pickRandom(SUITS) });
-    }
-    if (!hasMadeHand(hole, board)) return { hole, board };
+    if (!isFlop) board.push({ rank: fillerRanks[1], suit: pickRandom(SUITS) });
+    if (!hasMadeHand(hole, board) && countTotalOuts(hole, board) === 4) return { hole, board };
   }
   return null;
 }
 
 function generateOvercards(isFlop) {
-  for (let attempt = 0; attempt < 50; attempt++) {
-    // Two hole cards higher than all board cards = 6 outs (3 per overcard)
-    // Pick two high ranks for hole
+  for (let attempt = 0; attempt < 80; attempt++) {
     const highRanks = shuffle(['T', 'J', 'Q', 'K', 'A']).slice(0, 2);
     const minHole = Math.min(RANK_IDX[highRanks[0]], RANK_IDX[highRanks[1]]);
-    // Board must be all below the lowest hole card
     const lowPool = RANKS.filter((r) => RANK_IDX[r] < minHole);
     if (lowPool.length < (isFlop ? 3 : 4)) continue;
     const boardRanks = shuffle(lowPool).slice(0, isFlop ? 3 : 4);
@@ -251,14 +209,14 @@ function generateOvercards(isFlop) {
       { rank: highRanks[0], suit: suits[0] },
       { rank: highRanks[1], suit: suits[1] },
     ];
-    const board = boardRanks.map((r, i) => ({ rank: r, suit: pickRandom(SUITS) }));
-    if (!hasMadeHand(hole, board)) return { hole, board };
+    const board = boardRanks.map((r) => ({ rank: r, suit: pickRandom(SUITS) }));
+    if (!hasMadeHand(hole, board) && countTotalOuts(hole, board) === 6) return { hole, board };
   }
   return null;
 }
 
 function generatePairToTrips(isFlop) {
-  for (let attempt = 0; attempt < 50; attempt++) {
+  for (let attempt = 0; attempt < 80; attempt++) {
     const pairRank = pickRandom(RANKS);
     const pairSuits = shuffle(SUITS).slice(0, 2);
     const hole = [
@@ -268,63 +226,57 @@ function generatePairToTrips(isFlop) {
     const boardPool = shuffle(RANKS.filter((r) => r !== pairRank));
     const boardCount = isFlop ? 3 : 4;
     const board = boardPool.slice(0, boardCount).map((r) => ({ rank: r, suit: pickRandom(SUITS) }));
-    if (!hasMadeHand(hole, board)) return { hole, board };
+    if (!hasMadeHand(hole, board) && countTotalOuts(hole, board) === 2) return { hole, board };
   }
   return null;
 }
 
 function generateComboFlushOESD(isFlop) {
-  for (let attempt = 0; attempt < 50; attempt++) {
+  for (let attempt = 0; attempt < 80; attempt++) {
     const flushSuit = pickRandom(SUITS);
     const otherSuits = SUITS.filter((s) => s !== flushSuit);
-    // Need 4 connected in flush suit + one off-suit on board
     const startIdx = 1 + Math.floor(Math.random() * 8);
     const connected = RANKS.slice(startIdx, startIdx + 4);
-    const shuffled = shuffle([0, 1, 2, 3]);
-    const hole = [
-      { rank: connected[shuffled[0]], suit: flushSuit },
-      { rank: connected[shuffled[1]], suit: flushSuit },
-    ];
+    const idx = shuffle([0, 1, 2, 3]);
     const usedRanks = new Set(connected);
     const fillerRanks = shuffle(RANKS.filter((r) => !usedRanks.has(r)));
+    const hole = [
+      { rank: connected[idx[0]], suit: flushSuit },
+      { rank: connected[idx[1]], suit: flushSuit },
+    ];
     const board = [
-      { rank: connected[shuffled[2]], suit: flushSuit },
-      { rank: connected[shuffled[3]], suit: flushSuit },
+      { rank: connected[idx[2]], suit: flushSuit },
+      { rank: connected[idx[3]], suit: flushSuit },
       { rank: fillerRanks[0], suit: pickRandom(otherSuits) },
     ];
-    if (!isFlop) {
-      board.push({ rank: fillerRanks[1], suit: pickRandom(otherSuits) });
-    }
-    if (!hasMadeHand(hole, board)) return { hole, board };
+    if (!isFlop) board.push({ rank: fillerRanks[1], suit: pickRandom(otherSuits) });
+    if (!hasMadeHand(hole, board) && countTotalOuts(hole, board) === 15) return { hole, board };
   }
   return null;
 }
 
 function generateComboFlushGutshot(isFlop) {
-  for (let attempt = 0; attempt < 50; attempt++) {
+  for (let attempt = 0; attempt < 80; attempt++) {
     const flushSuit = pickRandom(SUITS);
     const otherSuits = SUITS.filter((s) => s !== flushSuit);
-    // 5 connected, remove interior for gutshot, all in flush suit
     const startIdx = Math.floor(Math.random() * 9);
     const five = RANKS.slice(startIdx, startIdx + 5);
     const gapIdx = 1 + Math.floor(Math.random() * 3);
     const kept = five.filter((_, i) => i !== gapIdx);
-    const shuffled = shuffle([0, 1, 2, 3]);
-    const hole = [
-      { rank: kept[shuffled[0]], suit: flushSuit },
-      { rank: kept[shuffled[1]], suit: flushSuit },
-    ];
+    const idx = shuffle([0, 1, 2, 3]);
     const usedRanks = new Set(five);
     const fillerRanks = shuffle(RANKS.filter((r) => !usedRanks.has(r)));
+    const hole = [
+      { rank: kept[idx[0]], suit: flushSuit },
+      { rank: kept[idx[1]], suit: flushSuit },
+    ];
     const board = [
-      { rank: kept[shuffled[2]], suit: flushSuit },
-      { rank: kept[shuffled[3]], suit: flushSuit },
+      { rank: kept[idx[2]], suit: flushSuit },
+      { rank: kept[idx[3]], suit: flushSuit },
       { rank: fillerRanks[0], suit: pickRandom(otherSuits) },
     ];
-    if (!isFlop) {
-      board.push({ rank: fillerRanks[1], suit: pickRandom(otherSuits) });
-    }
-    if (!hasMadeHand(hole, board)) return { hole, board };
+    if (!isFlop) board.push({ rank: fillerRanks[1], suit: pickRandom(otherSuits) });
+    if (!hasMadeHand(hole, board) && countTotalOuts(hole, board) === 12) return { hole, board };
   }
   return null;
 }
@@ -351,89 +303,45 @@ function generatePot(difficulty) {
   return Math.floor(Math.random() * 260 + 40);
 }
 
-// ── Derive draw name from actual cards ──
+// ── Derive draw label from actual cards (for display only) ──
+// Outs are always the canonical count from the draw type definition,
+// validated by countTotalOuts during generation.
 
-function identifyDraw(hole, board) {
+function identifyDrawName(hole, board) {
   const all = [...hole, ...board];
 
-  // Check flush draw (4 of a suit across hole+board, at least 1 hole card in suit)
   const suitCounts = {};
   all.forEach((c) => { suitCounts[c.suit] = (suitCounts[c.suit] || 0) + 1; });
-  const flushSuitEntry = Object.entries(suitCounts).find(([, n]) => n === 4);
-  const hasFlushDraw = !!flushSuitEntry && hole.some((c) => c.suit === flushSuitEntry[0]);
-  let flushOuts = 0;
-  if (hasFlushDraw) {
-    flushOuts = countFlushOuts(hole, board);
-  }
+  const hasFlushDraw = Object.entries(suitCounts).some(([s, n]) => n === 4 && hole.some((c) => c.suit === s));
 
-  // Check straight draws
-  const rankIdxSet = new Set(all.map((c) => RANK_IDX[c.rank]));
-  if (rankIdxSet.has(12)) rankIdxSet.add(-1); // ace low
-
-  let straightType = null; // 'oesd' or 'gutshot'
-  let straightOuts = 0;
-
-  // Count how many unique ranks complete a straight
-  const straightOutRanks = [];
+  // Count straight-completing ranks
+  const rankSet = new Set(all.map((c) => RANK_IDX[c.rank]));
+  if (rankSet.has(12)) rankSet.add(-1);
+  let straightRanks = 0;
   for (let r = 0; r < 13; r++) {
-    if (rankIdxSet.has(r)) continue;
-    const test = new Set(rankIdxSet);
+    if (rankSet.has(r)) continue;
+    const test = new Set(rankSet);
     test.add(r);
     if (r === 12) test.add(-1);
     const sorted = [...test].sort((a, b) => a - b);
     for (let i = 0; i <= sorted.length - 5; i++) {
-      if (sorted[i + 4] - sorted[i] === 4) {
-        straightOutRanks.push(r);
-        break;
-      }
+      if (sorted[i + 4] - sorted[i] === 4) { straightRanks++; break; }
     }
   }
-  straightOuts = straightOutRanks.length;
-  if (straightOuts >= 8) straightType = 'oesd';
-  else if (straightOuts >= 3) straightType = 'gutshot';
 
-  // Check overcards (both hole cards above all board cards)
   const boardMaxIdx = Math.max(...board.map((c) => RANK_IDX[c.rank]));
-  const hasOvercards = hole.every((c) => RANK_IDX[c.rank] > boardMaxIdx) && hole[0].rank !== hole[1].rank;
+  const isPP = hole[0].rank === hole[1].rank;
+  const isOC = !isPP && hole.every((c) => RANK_IDX[c.rank] > boardMaxIdx)
+    && !board.some((c) => hole.some((h) => h.rank === c.rank));
 
-  // Check pocket pair
-  const hasPocketPair = hole[0].rank === hole[1].rank && !board.some((c) => c.rank === hole[0].rank);
-
-  // Determine combo vs single draw
-  if (hasFlushDraw && straightType === 'oesd') {
-    // Combo: flush outs minus overlap (straight-completing cards in flush suit)
-    const overlapOuts = straightOutRanks.filter((r) => {
-      // Check if rank r in flushSuit is already accounted for
-      return !all.some((c) => RANK_IDX[c.rank] === r && c.suit === flushSuitEntry[0]);
-    }).length;
-    const totalOuts = flushOuts + straightOuts - overlapOuts;
-    return { name: 'Flush + straight draw', outs: Math.min(totalOuts, 15) };
-  }
-  if (hasFlushDraw && straightType === 'gutshot') {
-    const overlapOuts = straightOutRanks.filter((r) => {
-      return !all.some((c) => RANK_IDX[c.rank] === r && c.suit === flushSuitEntry[0]);
-    }).length;
-    const totalOuts = flushOuts + straightOuts - overlapOuts;
-    return { name: 'Flush + gutshot', outs: Math.min(totalOuts, 12) };
-  }
-  if (hasFlushDraw) {
-    return { name: 'Flush draw', outs: flushOuts };
-  }
-  if (straightType === 'oesd') {
-    return { name: 'Open-ended straight draw', outs: straightOuts };
-  }
-  if (straightType === 'gutshot') {
-    return { name: 'Gutshot straight draw', outs: straightOuts };
-  }
-  if (hasOvercards) {
-    return { name: 'Overcards', outs: 6 };
-  }
-  if (hasPocketPair) {
-    return { name: 'Pocket pair (set draw)', outs: 2 };
-  }
-
-  // Fallback
-  return { name: 'Drawing hand', outs: 0 };
+  if (hasFlushDraw && straightRanks >= 2) return 'Flush + straight draw';
+  if (hasFlushDraw && straightRanks >= 1) return 'Flush + gutshot';
+  if (hasFlushDraw) return 'Flush draw';
+  if (straightRanks >= 2) return 'Open-ended straight draw';
+  if (straightRanks >= 1) return 'Gutshot straight draw';
+  if (isOC) return 'Overcards';
+  if (isPP) return 'Pocket pair (set draw)';
+  return 'Drawing hand';
 }
 
 // ── Precompute valid combos per decision ──
@@ -512,29 +420,29 @@ function generateScenario(difficulty, recentDecisions) {
     }
   }
 
-  // Step 5: identify draw from actual cards and recompute
-  const identified = identifyDraw(cards.hole, cards.board);
+  // Step 5: use canonical outs (validated by countTotalOuts during generation)
   const multiplier = combo.isFlop ? 4 : 2;
-  const actualOuts = identified.outs;
-  const actualEquity = actualOuts * multiplier;
-  const finalDecision = getDecision(actualEquity, requiredEquity);
+  const outs = combo.drawType.outs;
+  const equity = outs * multiplier;
+  const finalDecision = getDecision(equity, requiredEquity);
+  const drawName = identifyDrawName(cards.hole, cards.board);
 
   // Step 6: narrative
   const street = combo.isFlop ? 'flop' : 'turn';
   const narrative = pickRandom(NARRATIVES)
     .replace('$STREET', street)
-    .replace('$DRAW', identified.name.toLowerCase())
+    .replace('$DRAW', drawName.toLowerCase())
     .replace('$POT', '$' + pot)
     .replace('$BET', '$' + bet);
 
   return {
     hole: cards.hole,
     board: cards.board,
-    outs: actualOuts,
-    equity: actualEquity,
+    outs,
+    equity,
     multiplier,
     street,
-    drawName: identified.name,
+    drawName,
     pot,
     bet,
     requiredEquity,
@@ -788,12 +696,16 @@ export function mount(app, navigateHome) {
     `;
 
     awaitingNext = true;
-    setTimeout(() => {
+    const advanceToNext = () => {
+      if (!awaitingNext) return;
       submitted = false;
       awaitingNext = false;
       currentScenario = null;
       render();
-    }, 2500);
+    };
+    const autoTimer = setTimeout(advanceToNext, 2500);
+    const card = document.getElementById('scenario-card');
+    if (card) card.addEventListener('click', () => { clearTimeout(autoTimer); advanceToNext(); });
   }
 
   function renderSummary() {

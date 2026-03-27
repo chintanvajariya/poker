@@ -184,6 +184,18 @@ html, body {
   text-align: center;
   padding: 20px;
   animation: fadeIn 0.2s ease;
+  cursor: pointer;
+}
+
+.feedback::after {
+  content: 'tap to continue';
+  display: block;
+  margin-top: 12px;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  opacity: 0.6;
 }
 
 @keyframes fadeIn {

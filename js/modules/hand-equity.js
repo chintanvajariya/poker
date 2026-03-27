@@ -236,12 +236,16 @@ export function mount(app, navigateHome) {
     `;
 
     awaitingNext = true;
-    setTimeout(() => {
+    const advanceToNext = () => {
+      if (!awaitingNext) return;
       submitted = false;
       awaitingNext = false;
       currentScenario = null;
       render();
-    }, 1500);
+    };
+    const autoTimer = setTimeout(advanceToNext, 1500);
+    const card = document.getElementById('scenario-card');
+    if (card) card.addEventListener('click', () => { clearTimeout(autoTimer); advanceToNext(); });
   }
 
   function renderSummary() {
