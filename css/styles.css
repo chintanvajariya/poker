@@ -468,6 +468,14 @@ html, body {
   color: var(--text);
 }
 
+/* Version label */
+.version {
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  opacity: 0.5;
+  margin-top: 8px;
+}
+
 /* Streak indicator */
 .streak {
   color: var(--yellow);

@@ -44,6 +44,7 @@ function renderHome() {
       <div class="module-list">
         ${moduleButtons}
       </div>
+      <div class="version">v0.2.2</div>
     </div>
   `;
 
